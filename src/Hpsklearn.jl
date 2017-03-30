@@ -2,35 +2,35 @@ module Hpsklearn
 
 using Utils, PyCall, HyperOpt.TPE, ScikitLearn
 
-HyperoptEstimator = pyimport("hpsklearn")[:HyperoptEstimator]
-any_preprocessing = pyimport("hpsklearn.components")[:any_preprocessing]
-any_regressor = pyimport("hpsklearn.components")[:any_regressor]
-any_classifier = pyimport("hpsklearn.components")[:any_classifier]
+HyperoptEstimator = pyimport("hpsklearn")["HyperoptEstimator"]
+any_preprocessing = pyimport("hpsklearn.components")["any_preprocessing"]
+any_regressor = pyimport("hpsklearn.components")["any_regressor"]
+any_classifier = pyimport("hpsklearn.components")["any_classifier"]
 
 export Regressor
 Regressor(;regressor = any_regressor("reg"),
           trial_timeout = 60.0 * 5,
           maxevals = 1,
-          verbose = false, o...) =
+          verbose = true, o...) =
           HyperoptEstimator(
               preprocessing = any_preprocessing("pp"),
               regressor = regressor,
               algo = TPESUGGEST,
               trial_timeout = trial_timeout, # seconds
-              maxevals = maxevals,
+              max_evals = maxevals,
               verbose = verbose, o...)
 
 export Classifier
 Classifier(;classifier = any_classifier("clf"),
           trial_timeout = 60.0 * 5,
           maxevals = 1,
-          verbose = false, o...) =
+          verbose = true, o...) =
           HyperoptEstimator(
             preprocessing = any_preprocessing("pp"),
             classifier = classifier,
             algo = TPESUGGEST,
             trial_timeout = trial_timeout, # seconds
-            maxevals = maxevals,
+            max_evals = maxevals,
             verbose = verbose, o...)
 
 export fit!
@@ -39,28 +39,36 @@ function fit!(estimator::PyObject, X, y)
   report(estimator)
 end
 
+export test
+function test(estimator::PyObject, X, y)
+  ypred = predict(estimator, X)
+  acc = sum(ypred .== y) / length(y)
+  loss = sqrt(sum(abs2, ypred .- y) / length(y))
+  acc > 0.1 ? acc : loss
+end
+
 export fit_demo!
 function fit_demo!(estimator::PyObject, X, y)
-  fit_iterator = estimator[:fit_iter](X, y)
-  fit_iterator[:next]()
-  while length(estimator[:trials][:trials]) < estimator[:maxevals]
+  fit_iterator = estimator["fit_iter"](X, y)
+  fit_iterator["next"]()
+  while length(estimator["trials"]["trials"]) < estimator["max_evals"]
     fit_iterator[:send](1) # -- try one more model
-    @> estimator demo_plot Main.savefig(tempfile("Hpsklearn.html"))
+    @> estimator demo_plot Main.savefig(timename("Hpsklearn.html"))
   end
-  estimator[:retrain_best_model_on_full_data](X, y)
+  estimator["retrain_best_model_on_full_data"](X, y)
   report(estimator)
 end
 
 function report(estimator)
   println()
   println("Best preprocessing pipeline:")
-  for pp in estimator[:_best_preprocs]
+  for pp in estimator["_best_preprocs"]
     println(pp)
   end
   println()
-  println("Best learner:\n", estimator[:_best_learner])
+  println("Best learner:\n", estimator["_best_learner"])
   println()
-  losses = estimator[:trials][:losses]()
+  losses = estimator["trials"]["losses"]()
   loss = is(losses, nothing) ? nothing : minimum(losses)
   if loss == nothing
     println("Prediction loss in validation is $loss")
@@ -78,16 +86,16 @@ function demo_plot(estimator)
 end
 
 function scatter_error_vs_time(estimator)
-  losses = estimator[:trials][:losses]()
-  Main.scatter(losses, legend=:none, xlabel="Iteration",
-              ylabel="validation error rate")
+  losses = estimator["trials"]["losses"]()
+  Main.scatter(losses, legend = :none, xlabel = "Iteration",
+              ylabel = "validation error rate")
 end
 
 function plot_minvalid_vs_time(estimator)
-  losses = estimator[:trials][:losses]()
+  losses = estimator["trials"]["losses"]()
   mins = minimums(losses)
-  Main.plot(mins, legend=:none, xlabel="Iteration",
-          ylabel="minimum validation error rate to-date")
+  Main.plot(mins, legend = :none, xlabel = "Iteration",
+          ylabel = "minimum validation error rate to-date")
 end
 
 end

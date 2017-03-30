@@ -1,5 +1,5 @@
 run(`pip install -I numpy==1.11.0`)
-!ispath("hyperopt-sklearn") && run(`git clone https://github.com/hyperopt/hyperopt-sklearn.git`)
+!isdir("hyperopt-sklearn") && run(`git clone https://github.com/hyperopt/hyperopt-sklearn.git`)
 cd("hyperopt-sklearn")
 run(`pip install -e .`)
 cd("..")
